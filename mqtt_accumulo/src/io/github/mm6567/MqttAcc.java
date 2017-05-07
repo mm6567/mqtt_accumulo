@@ -108,7 +108,7 @@ public class MqttAcc {
                     "  Topic:\t" + topic +
                     "  Message:\t" + new String(message.getPayload()) +
                     "  QoS:\t" + message.getQos());
-            Mutation m = new Mutation(new Text("topic"));
+            Mutation m = new Mutation(new Text(topic));
             m.put(colf, new Text(String.format("colqual_%d", message.getQos())), new Value(new String(message.getPayload())));
             bw.addMutation(m);
         }
