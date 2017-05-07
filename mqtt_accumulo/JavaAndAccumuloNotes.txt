@@ -1,0 +1,115 @@
+##### 2017-05-06
+#
+# in InteliJ, have to add build artifact jar to project
+# Projecct Structure > Project Settings > Artifacts > JAR > Create JAR from Modules
+#   JAR files from libraries: extract to the target JAR
+#   select main class if desired
+#
+# and then when want jar made Build>Build Artifacts
+
+#mosquitto
+sudo /etc/init.d/mosquitto start
+# in one shell
+mosquitto_sub -d -t hello/world
+# in 2nd shell
+cd ~/Documents/mqtt_test2/out/artifacts/mqtt_test2_jar$ 
+java -jar mqtt_test2.jar 
+# in 3rd shell
+mosquitto_pub -d -t hello/world -m "foo"
+# and then 1st and 3rd shell will show receiving "topic hello/world", "message foo"
+
+
+# accumulo
+cd ~/Documents/uno/
+eval "$(./bin/uno env)"
+./bin/uno setup accumulo
+accumulo shell -u root -p secret
+# root@uno> createtable hellotable
+# root@uno> quit
+# open http://localhost:9995/ so can view row count before and after InsertWithBatchWriter
+# in InteliJ, add libraries from Maven "org.apache.accumulo:accumulo-core:1.8.0"
+cd /home/matt/Documents/accumulo-1.8.1/examples/simple/out/artifacts/accumulo_examples_simple_jar
+java -cp accumulo-examples-simple.jar org.apache.accumulo.examples.simple.helloworld.InsertWithBatchWriter -i uno -z localhost:2181 -u root -p secret -t hellotable
+
+###
+# need to learn how to include signed jars in jar or deal with dependencies
+
+
+####
+# 2017-05-07
+#
+# set up the openfmb distributech demo on DellT5500
+#  using openfmb wiki instructions
+#
+#  they were missing an mqtt-spy configuration xml as it lives in /home/user/ dir and not in the stage dir
+#
+## also had to install java fx as not included in openjdk package
+sudo apt-get install openjfx
+
+cd ~
+ls mqtt-spy/
+# mqtt-spy-stats.xml  mqtt-spy-ui.properties
+cd mqtt-spy/
+vi mqtt-spy-configuration.xml
+## and then copy and paste contents of xml file from openfmb virtual machine
+cd ~/Documents/openfmb_demo/stage/
+java -jar mqtt-spy-0.5.3-jar-with-dependencies.jar
+
+## in different terminal
+cd ~/Documents/openfmb_demo/stage/
+./simgo.sh
+
+### now see about putting mqtt messages in to accumulo
+# open mqtt_accumulo project in IntelliJ and run
+# ( still need to figure out dependecy stuff as the jar it makes complains about signing, likely due to including official Apache Accumulo jars)
+# no text output seen
+# but mqtt-spy shows the openfmb stuff chatting away
+# eventually got exception:
+# Exception in thread "main" java.lang.RuntimeException: Failed to connect to zookeeper (localhost:2181) within 2x zookeeper timeout period 30000
+# duh - didn't run uno to start accumulo stuff up
+cd ~/Documents/uno/
+eval "$(./bin/uno env)"
+uno start accumulo
+
+# run my app again
+# looks like going to time out again
+# opened accumulo shell
+accumulo shell -u root -p secret
+#2017-05-07 14:31:43,514 [trace.DistributedTrace] INFO : SpanReceiver org.apache.accumulo.tracer.ZooTraceClient was loaded successfully.
+#2017-05-07 14:31:43,531 [impl.ServerClient] WARN : There are no tablet servers: check that zookeeper and accumulo are running.
+#
+# so had to Ctrl-C
+# betcha should have run 'uno setup accumulo' instead of 'uno start accumulo'
+uno setup accumulo
+accumulo shell -u root -p secret
+# see if still have table from yesterday
+#root@uno> tables
+# accumulo.metadata
+# accumulo.replication
+# accumulo.root
+# trace
+#
+# so no
+# did createtable hellotable as per yesterday
+#
+# and run my app again
+# but first browse to http://localhost:9995/master and verify 0 entries in hellotable
+#
+# my app runs now without error and see mqtt topics coming in and no errors / exceptions
+# but still show 0 entries in table
+#
+# waited some time (had dinner) and came back and had 10k rows
+# since I had row named literally "topic" rather than using variable topic, only had 2 results from a scan in accumulo shell
+root@uno> table hellotable
+root@uno hellotable> scan
+topic colfam:colqual_0 []    <?xml version="1.0" encoding="UTF-8" standalone="yes"?><ns4:RecloserReadingProfile xmlns:ns2="http://openfmb.org/xsd/2015/12/openfmb/interchangemodule" xmlns:ns3="http://openfmb.org/xsd/2015/12/openfmb/loadmodule" xmlns:ns4="http://openfmb.org/xsd/2015/12/openfmb/reclosermodule" xmlns:ns5="http://openfmb.org/xsd/2016/05/openfmb/regulatormodule" xmlns:ns6="http://openfmb.org/xsd/2015/12/openfmb/batterymodule" xmlns:ns7="http://openfmb.org/xsd/2015/12/openfmb/resourcemodule" xmlns:ns8="http://openfmb.org/xsd/2015/12/openfmb/securitymodule" xmlns:ns9="http://openfmb.org/xsd/2016/04/openfmb/shuntmodule" xmlns:ns10="http://openfmb.org/xsd/2015/12/openfmb/solarmodule" xmlns:ns11="http://openfmb.org/xsd/2015/12/openfmb/commonmodule" xmlns:ns12="http://www.omnetric.com/TelecomData.xsd#" xmlns:ns13="http://openfmb.org/xsd/2015/12/openfmb/weathermodule" xmlns:ns14="http://openfmb.org/xsd/2015/12/openfmb/generationmodule"><ns11:logicalDeviceID>DEMO.MGRID.RECLOSER.1</ns11:logicalDeviceID><ns11:timestamp>2017-05-07T15:26:41.675-07:00</ns11:timestamp><ns4:Readings><ns11:qualityFlag>0000</ns11:qualityFlag><ns11:source></ns11:source><ns11:timePeriod><ns11:end>2017-05-07T15:26:41.675-07:00</ns11:end><ns11:start>2017-05-07T15:26:41.675-07:00</ns11:start></ns11:timePeriod><ns11:value>62.53392</ns11:value><ns11:ReadingType><ns11:flowDirection>total</ns11:flowDirection><ns11:multiplier>kilo</ns11:multiplier><ns11:phases>ABCN</ns11:phases><ns11:unit>W</ns11:unit></ns11:ReadingType></ns4:Readings><ns4:Readings><ns11:qualityFlag>0000</ns11:qualityFlag><ns11:source></ns11:source><ns11:timePeriod><ns11:end>2017-05-07T15:26:41.675-07:00</ns11:end><ns11:start>2017-05-07T15:26:41.675-07:00</ns11:start></ns11:timePeriod><ns11:value>277.12146</ns11:value><ns11:ReadingType><ns11:flowDirection>total</ns11:flowDirection><ns11:multiplier>noMultiplier</ns11:multiplier><ns11:phases>ABCN</ns11:phases><ns11:unit>V</ns11:unit></ns11:ReadingType></ns4:Readings><ns4:Readings><ns11:qualityFlag>0000</ns11:qualityFlag><ns11:source></ns11:source><ns11:timePeriod><ns11:end>2017-05-07T15:26:41.675-07:00</ns11:end><ns11:start>2017-05-07T15:26:41.675-07:00</ns11:start></ns11:timePeriod><ns11:value>60.000587</ns11:value><ns11:ReadingType><ns11:flowDirection>total</ns11:flowDirection><ns11:multiplier>noMultiplier</ns11:multiplier><ns11:phases>ABCN</ns11:phases><ns11:unit>Hz</ns11:unit></ns11:ReadingType></ns4:Readings><ns4:Recloser><ns11:description>Recloser</ns11:description><ns11:mRID>DEMO.MGRID.RECLOSER.1</ns11:mRID><ns11:name>Recloser</ns11:name></ns4:Recloser></ns4:RecloserReadingProfile>
+topic colfam:colqual_1 []    <?xml version="1.0" encoding="UTF-8" standalone="yes"?>\x0A<ns2:ResourceReadingProfile xmlns="http://openfmb.org/xsd/2015/12/openfmb/commonmodule" xmlns:ns2="http://openfmb.org/xsd/2015/12/openfmb/resourcemodule">\x0A    <logicalDeviceID>DEMO.MGRID.RESOURCE.1</logicalDeviceID>\x0A    <timestamp>2017-05-07T15:26:37.124-07:00</timestamp>\x0A    <ns2:Meter>\x0A        <description>Load1</description>\x0A        <mRID>DEMO.MGRID.RESOURCE.1</mRID>\x0A        <name>Load1</name>\x0A        <PowerSystemResource>\x0A            <description>Load1</description>\x0A            <mRID>DEMO.MGRID.RESOURCE.1</mRID>\x0A            <name>Load1</name>\x0A        </PowerSystemResource>\x0A    </ns2:Meter>\x0A    <ns2:Readings>\x0A        <qualityFlag>0000</qualityFlag>\x0A        <source>Load1</source>\x0A        <timePeriod>\x0A            <start>2017-05-07T15:26:37.124-07:00</start>\x0A        </timePeriod>\x0A        <value>145.2354</value>\x0A        <ReadingType>\x0A            <flowDirection>forward</flowDirection>\x0A            <multiplier>kilo</multiplier>\x0A            <name>KW</name>\x0A            <phases>ABC</phases>\x0A            <unit>W</unit>\x0A        </ReadingType>\x0A    </ns2:Readings>\x0A</ns2:ResourceReadingProfile>\x0A
+root@uno hellotable> 
+#
+#
+# changed code to use variable topic, and re-ran
+# had to wait an annoying amoung of time before 'scan' in accumulo shell started showing the new style entries
+#
+
+
+
