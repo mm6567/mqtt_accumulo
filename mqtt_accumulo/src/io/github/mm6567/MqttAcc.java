@@ -16,6 +16,17 @@ import org.apache.hadoop.io.Text;
 import org.eclipse.paho.client.mqttv3.*;
 import java.sql.Timestamp;
 import java.util.concurrent.TimeUnit;
+import java.io.StringReader;
+
+import javax.xml.parsers.DocumentBuilder;
+import javax.xml.parsers.DocumentBuilderFactory;
+
+import org.w3c.dom.CharacterData;
+import org.w3c.dom.Document;
+import org.w3c.dom.Element;
+import org.w3c.dom.Node;
+import org.w3c.dom.NodeList;
+import org.xml.sax.InputSource;
 
 public class MqttAcc {
 
@@ -108,10 +119,45 @@ public class MqttAcc {
                     "  Topic:\t" + topic +
                     "  Message:\t" + new String(message.getPayload()) +
                     "  QoS:\t" + message.getQos());
+
+
+/*
             Mutation m = new Mutation(new Text(topic));
             m.put(colf, new Text(String.format("colqual_%d", message.getQos())), new Value(new String(message.getPayload())));
-            bw.addMutation(m);
+*/
+            String xmlRecords = new String(message.getPayload());
+            DocumentBuilder db = DocumentBuilderFactory.newInstance().newDocumentBuilder();
+            InputSource is = new InputSource();
+            is.setCharacterStream(new StringReader(xmlRecords));
+
+            Document doc = db.parse(is);
+            NodeList nodes = doc.getElementsByTagName("employee");
+
+            for (int i = 0; i < nodes.getLength(); i++) {
+                Element element = (Element) nodes.item(i);
+
+                NodeList name = element.getElementsByTagName("name");
+                Element line = (Element) name.item(0);
+                System.out.println("Name: " + getCharacterDataFromElement(line));
+
+                NodeList title = element.getElementsByTagName("title");
+                line = (Element) title.item(0);
+                System.out.println("Title: " + getCharacterDataFromElement(line));
+            }
+
+
+            //bw.addMutation(m);
         }
+
+        public static String getCharacterDataFromElement(Element e) {
+            Node child = e.getFirstChild();
+            if (child instanceof CharacterData) {
+                CharacterData cd = (CharacterData) child;
+                return cd.getData();
+            }
+            return "";
+        }
+
 
         @Override
         public void deliveryComplete(IMqttDeliveryToken iMqttDeliveryToken)
